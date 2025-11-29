@@ -28,8 +28,14 @@ class ModernFaceRecognitionUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Face Recognition Attendance System")
-        self.root.geometry("1400x900")
-        self.root.minsize(1200, 800)
+        self.root.geometry("1400x950")
+        self.root.minsize(1200, 900)
+        
+        # Maximize window on startup
+        try:
+            self.root.state('zoomed')  # Windows
+        except:
+            pass
         
         # Paths
         self.known_faces_dir = Path("known_faces")
@@ -193,22 +199,38 @@ class ModernFaceRecognitionUI:
     
     def create_control_panel(self, parent):
         """Create control panel with buttons and forms."""
-        panel = tk.Frame(parent, bg=self.colors['bg'], width=350)
+        panel = tk.Frame(parent, bg=self.colors['bg'], width=380)
         panel.pack(side=tk.LEFT, fill=tk.BOTH, padx=(0, 10))
         panel.pack_propagate(False)
         
+        # Create a canvas with scrollbar for the control panel
+        canvas = tk.Canvas(panel, bg=self.colors['bg'], highlightthickness=0)
+        scrollbar = tk.Scrollbar(panel, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg=self.colors['bg'])
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
         # Mode buttons
-        self.create_card(panel, "Actions", self.create_action_buttons)
+        self.actions_card = self.create_card(scrollable_frame, "Actions", self.create_action_buttons)
         
-        # Session control
-        self.create_card(panel, "Session", self.create_session_controls)
-        
-        # Registration form (hidden initially)
-        self.register_card = self.create_card(panel, "Register Person", self.create_register_form)
+        # Registration form (hidden initially) - MOVED TO TOP
+        self.register_card = self.create_card(scrollable_frame, "Register Person", self.create_register_form)
         self.register_card.pack_forget()
         
+        # Session control
+        self.session_card = self.create_card(scrollable_frame, "Session", self.create_session_controls)
+        
         # Status
-        self.create_card(panel, "Status", self.create_status_display)
+        self.create_card(scrollable_frame, "Status", self.create_status_display)
     
     def create_card(self, parent, title, content_func):
         """Create a card container."""
@@ -334,44 +356,52 @@ class ModernFaceRecognitionUI:
     def create_register_form(self, parent):
         """Create registration form."""
         # Name
-        tk.Label(
+        name_label = tk.Label(
             parent,
             text="Full Name:",
-            font=("Segoe UI", 10),
+            font=("Segoe UI", 10, "bold"),
             bg=self.colors['card'],
-            fg=self.colors['text_dim']
-        ).pack(anchor=tk.W, pady=(0, 5))
+            fg=self.colors['text']
+        )
+        name_label.pack(anchor=tk.W, pady=(0, 3))
         
         self.name_entry = tk.Entry(
             parent,
             font=("Segoe UI", 11),
             bg='white',
-            fg=self.colors['text'],
-            insertbackground=self.colors['text'],
+            fg='#000000',
+            insertbackground='#000000',
             relief=tk.SOLID,
-            borderwidth=1
+            borderwidth=2,
+            highlightthickness=1,
+            highlightbackground='#2563eb',
+            highlightcolor='#2563eb'
         )
-        self.name_entry.pack(fill=tk.X, pady=(0, 10), ipady=8)
+        self.name_entry.pack(fill=tk.X, pady=(0, 10), ipady=6)
         
         # Student ID
-        tk.Label(
+        student_id_label = tk.Label(
             parent,
             text="Student ID:",
-            font=("Segoe UI", 10),
+            font=("Segoe UI", 10, "bold"),
             bg=self.colors['card'],
-            fg=self.colors['text_dim']
-        ).pack(anchor=tk.W, pady=(0, 5))
+            fg=self.colors['text']
+        )
+        student_id_label.pack(anchor=tk.W, pady=(0, 3))
         
         self.student_id_entry = tk.Entry(
             parent,
             font=("Segoe UI", 11),
-            bg='white',
-            fg=self.colors['text'],
-            insertbackground=self.colors['text'],
+            bg='#ffffcc',
+            fg='#000000',
+            insertbackground='#000000',
             relief=tk.SOLID,
-            borderwidth=1
+            borderwidth=2,
+            highlightthickness=1,
+            highlightbackground='#2563eb',
+            highlightcolor='#2563eb'
         )
-        self.student_id_entry.pack(fill=tk.X, pady=(0, 15), ipady=8)
+        self.student_id_entry.pack(fill=tk.X, pady=(0, 10), ipady=6)
         
         # Save button
         self.btn_save = self.create_button(
@@ -380,16 +410,16 @@ class ModernFaceRecognitionUI:
             self.save_face,
             self.colors['success']
         )
-        self.btn_save.pack(fill=tk.X)
+        self.btn_save.pack(fill=tk.X, pady=(0, 5))
         
         # Hint
         tk.Label(
             parent,
-            text="Press SPACE to capture face",
-            font=("Segoe UI", 9, "italic"),
+            text="Press SPACE to capture",
+            font=("Segoe UI", 8, "italic"),
             bg=self.colors['card'],
             fg=self.colors['text_dim']
-        ).pack(pady=(10, 0))
+        ).pack(pady=(5, 0))
     
     def create_status_display(self, parent):
         """Create status display."""
@@ -922,13 +952,28 @@ class ModernFaceRecognitionUI:
     
     def start_registration(self):
         """Start registration mode."""
+        print("DEBUG: Starting registration mode")
+        
         self.mode = "register"
         self.captured_face = None
         self.captured_location = None
         self.name_entry.delete(0, tk.END)
         self.student_id_entry.delete(0, tk.END)
         
-        self.register_card.pack(fill=tk.X, pady=(0, 15), before=self.status_label.master.master)
+        # Show the registration card RIGHT AFTER Actions card
+        try:
+            self.register_card.pack(fill=tk.X, pady=(0, 15), after=self.actions_card)
+            print("DEBUG: Registration card packed successfully after Actions")
+        except Exception as e:
+            print(f"DEBUG: Error packing card: {e}")
+            # Alternative: pack it at the beginning
+            self.register_card.pack(fill=tk.X, pady=(0, 15), before=self.session_card)
+        
+        # Make sure fields are enabled and visible
+        self.name_entry.config(state=tk.NORMAL)
+        self.student_id_entry.config(state=tk.NORMAL)
+        print(f"DEBUG: Name entry state: {self.name_entry['state']}")
+        print(f"DEBUG: Student ID entry state: {self.student_id_entry['state']}")
         
         self.btn_register.config(state=tk.DISABLED)
         self.btn_recognize.config(state=tk.DISABLED)
@@ -937,6 +982,10 @@ class ModernFaceRecognitionUI:
         self.status_label.config(text="Registration mode: Position face and press SPACE")
         
         self.root.bind('<space>', lambda e: self.capture_face())
+        print("DEBUG: Registration mode active, SPACE key bound")
+        
+        # Force update
+        self.root.update_idletasks()
     
     def start_recognition(self):
         """Start recognition mode."""
@@ -971,18 +1020,28 @@ class ModernFaceRecognitionUI:
     
     def capture_face(self):
         """Capture face for registration."""
+        print("DEBUG: capture_face called")
+        
         if not self.video_capture:
+            print("DEBUG: No video capture")
+            messagebox.showerror("Camera Error", "Camera is not available.")
             return
         
         ret, frame = self.video_capture.read()
         if not ret:
+            print("DEBUG: Could not read frame")
+            messagebox.showerror("Camera Error", "Could not read from camera.")
             return
         
+        print(f"DEBUG: Frame captured, shape: {frame.shape}")
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        print("DEBUG: Detecting faces...")
         face_locations = face_recognition.face_locations(rgb_frame)
+        print(f"DEBUG: Found {len(face_locations)} face(s)")
         
         if not face_locations:
-            messagebox.showwarning("No Face", "No face detected. Please position your face clearly.")
+            messagebox.showwarning("No Face", "No face detected. Please position your face clearly in the camera.")
             return
         
         # Capture first face
@@ -995,8 +1054,19 @@ class ModernFaceRecognitionUI:
             max(0, left-padding):min(rgb_frame.shape[1], right+padding)
         ].copy()
         
-        self.name_entry.focus()
+        print(f"DEBUG: Face captured successfully at location: {self.captured_location}")
+        print(f"DEBUG: Captured face shape: {self.captured_face.shape}")
+        
+        # Make sure fields are enabled
+        self.name_entry.config(state=tk.NORMAL)
+        self.student_id_entry.config(state=tk.NORMAL)
+        
+        # Focus on name field
+        self.name_entry.focus_set()
+        self.name_entry.icursor(tk.END)
+        
         self.status_label.config(text="Face captured! Enter name and student ID, then save")
+        messagebox.showinfo("Success", "Face captured! Now enter the name and student ID in the form below.")
     
     def save_face(self):
         """Save captured face."""
