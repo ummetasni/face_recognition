@@ -1,0 +1,3 @@
+session_name,date,time,person,student_id,confidence
+Class A,2025-11-30,11:51:45,trima,20245103165,45.6%
+Class A,2025-11-30,11:51:49,piu,20245103166,40.7%
